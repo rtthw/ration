@@ -89,6 +89,14 @@ impl<T: Sized> Channel<T> {
             return false;
         }
 
+        self.send_unchecked(item);
+
+        true
+    }
+
+    // NOTE: This method does NOT check for overflows.
+    //       It is up to you to ensure there is enough space in the channel.
+    pub fn send_unchecked(&mut self, item: T) {
         // Get the next available index, wrapping if need be.
         let index = unsafe { &*self.finish }.fetch_add(1, Ordering::SeqCst) % self.capacity;
         if index == 0 {
@@ -103,12 +111,10 @@ impl<T: Sized> Channel<T> {
 
         // Signal.
         unsafe { &mut *self.flag }.store(1, Ordering::Relaxed);
-
-        true
     }
 
     // NOTE: This method does NOT check the flag, nor does it clear it.
-    pub fn recv(&mut self) -> Option<T> {
+    pub fn recv_unchecked(&mut self) -> Option<T> {
         let result = unsafe { &mut *self.base.offset(self.start) }.take();
         if !result.is_none() {
             self.start = (self.start + 1) % self.capacity;
