@@ -114,6 +114,23 @@ impl<T: Sized> Channel<T> {
         unsafe { &mut *self.empty_flag }.store(1, Ordering::Relaxed);
     }
 
+    pub fn pop(&mut self) -> Option<T> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let result = unsafe { &mut *self.base.offset(self.first) }.take();
+        if !result.is_none() {
+            self.first = (self.first + 1) % self.capacity;
+            unsafe { &*self.len }.fetch_sub(1, Ordering::SeqCst);
+        } else {
+            // Signal.
+            unsafe { &mut *self.empty_flag }.store(0, Ordering::Relaxed);
+        }
+
+        result
+    }
+
     // NOTE: This method does NOT check the empty flag, nor does it clear it.
     pub fn pop_unchecked(&mut self) -> Option<T> {
         let result = unsafe { &mut *self.base.offset(self.first) }.take();
