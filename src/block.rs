@@ -55,3 +55,24 @@ impl<T: Sized> Block<T> {
         })
     }
 }
+
+impl<T> Block<T> {
+    /// Whether the unnderlying shared memory mapping is owned by this block.
+    pub fn owned(&self) -> bool {
+        self.shm.is_owner()
+    }
+}
+
+impl<T> std::ops::Deref for Block<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<T> std::ops::DerefMut for Block<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.ptr }
+    }
+}
