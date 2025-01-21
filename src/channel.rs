@@ -78,6 +78,34 @@ impl<T: Sized> Channel<T> {
 
         previous_value == 1
     }
+
+    // TODO: `send_many` method that accepts an iterator of items, more efficient.
+    pub fn send(&mut self, item: T) -> bool {
+        // Ensure the internal ring buffer isn't full.
+        let count = unsafe { &*self.count }.fetch_add(1, Ordering::SeqCst);
+        if count >= self.capacity {
+            // The buffer is full; give up.
+            unsafe { &*self.count }.fetch_sub(1, Ordering::SeqCst);
+            return false;
+        }
+
+        // Get the next available index, wrapping if need be.
+        let index = unsafe { &*self.finish }.fetch_add(1, Ordering::SeqCst) % self.capacity;
+        if index == 0 {
+            // Just mod on overflow; the buffer is circular.
+            unsafe { &*self.finish }.fetch_sub(self.capacity, Ordering::SeqCst);
+        }
+
+        // Write the item into the shared memory.
+        unsafe {
+            self.base.offset(index).write(Some(item));
+        }
+
+        // Signal.
+        unsafe { &mut *self.flag }.store(1, Ordering::Relaxed);
+
+        true
+    }
 }
 
 impl<T> Channel<T> {
