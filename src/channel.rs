@@ -21,8 +21,12 @@ pub struct Channel<T: Sized> {
 
 impl<T: Sized> Channel<T> {
     pub fn alloc(path: impl AsRef<Path>, capacity: usize) -> Result<Self> {
-        let size = std::mem::size_of::<T>();
-        let shm = match shared_memory::ShmemConf::new().flink(&path).size(size).create() {
+        let block_size
+            = (std::mem::size_of::<Option<T>>() * capacity) // items
+            + std::mem::size_of::<AtomicU8>()               // flag
+            + (std::mem::size_of::<AtomicIsize>() * 2);     // finish & count
+
+        let shm = match shared_memory::ShmemConf::new().flink(&path).size(block_size).create() {
             Ok(shmem) => shmem,
             Err(shared_memory::ShmemError::LinkExists) => {
                 return Err(Error::BlockAlreadyAllocated);
