@@ -11,20 +11,20 @@ use crate::{Error, Result};
 pub struct Channel<T: Sized> {
     shm: shared_memory::Shmem,
 
-    flag: *mut AtomicU8,
+    empty_flag: *mut AtomicU8,
     base: *mut Option<T>,
     capacity: isize,
-    start: isize,
-    finish: *mut AtomicIsize,
-    count: *mut AtomicIsize,
+    first: isize,
+    last: *mut AtomicIsize,
+    len: *mut AtomicIsize,
 }
 
 impl<T: Sized> Channel<T> {
     pub fn alloc(path: impl AsRef<Path>, capacity: usize) -> Result<Self> {
         let block_size
-            = (std::mem::size_of::<Option<T>>() * capacity) // items
-            + std::mem::size_of::<AtomicU8>()               // flag
-            + (std::mem::size_of::<AtomicIsize>() * 2);     // finish & count
+            = (std::mem::size_of::<Option<T>>() * capacity) // elements
+            + std::mem::size_of::<AtomicU8>()               // empty_flag
+            + (std::mem::size_of::<AtomicIsize>() * 2);     // last & len
 
         let shm = match shared_memory::ShmemConf::new().flink(&path).size(block_size).create() {
             Ok(shmem) => shmem,
@@ -35,27 +35,27 @@ impl<T: Sized> Channel<T> {
         };
 
         unsafe {
-            let flag = shm.as_ptr() as *mut AtomicU8;
-            let count = flag.offset(1) as *mut AtomicIsize;
-            let start = 1;
-            let finish = count.offset(1);
-            let base = count.offset(2) as *mut Option<T>;
+            let empty_flag = shm.as_ptr() as *mut AtomicU8;
+            let len = empty_flag.offset(1) as *mut AtomicIsize;
+            let first = 1;
+            let last = len.offset(1);
+            let base = len.offset(2) as *mut Option<T>;
             let capacity = capacity as isize;
 
-            (&*count).store(0, Ordering::SeqCst);
-            (&*finish).store(start, Ordering::SeqCst);
+            (&*len).store(0, Ordering::SeqCst);
+            (&*last).store(first, Ordering::SeqCst);
             for i in 0..capacity {
                 base.offset(i).write(None);
             }
 
             Ok(Self {
                 shm,
-                flag,
+                empty_flag,
                 base,
                 capacity,
-                start,
-                finish,
-                count,
+                first,
+                last,
+                len,
             })
         }
     }
@@ -64,61 +64,62 @@ impl<T: Sized> Channel<T> {
         todo!()
     }
 
-    pub fn check(&self) -> bool {
-        unsafe { &*self.flag }.load(Ordering::Relaxed) == 1
+    /// Returns `true` if the channel contains no elements.
+    pub fn is_empty(&self) -> bool {
+        unsafe { &*self.empty_flag }.load(Ordering::Relaxed) == 0
     }
 
-    pub fn exchange(&self) -> bool {
-        let previous_value = match unsafe { &*self.flag }
-            .compare_exchange(1, 0, Ordering::Relaxed, Ordering::Relaxed)
-        {
-            Ok(val) => val,
-            Err(val) => val,
-        };
+    // pub fn exchange(&self) -> bool {
+    //     let previous_value = match unsafe { &*self.empty_flag }
+    //         .compare_exchange(1, 0, Ordering::Relaxed, Ordering::Relaxed)
+    //     {
+    //         Ok(val) => val,
+    //         Err(val) => val,
+    //     };
 
-        previous_value == 1
-    }
+    //     previous_value == 1
+    // }
 
     // TODO: `send_many` method that accepts an iterator of items, more efficient.
-    pub fn send(&mut self, item: T) -> bool {
+    pub fn send(&mut self, element: T) -> bool {
         // Ensure the internal ring buffer isn't full.
-        let count = unsafe { &*self.count }.fetch_add(1, Ordering::SeqCst);
+        let count = unsafe { &*self.len }.fetch_add(1, Ordering::SeqCst);
         if count >= self.capacity {
             // The buffer is full; give up.
-            unsafe { &*self.count }.fetch_sub(1, Ordering::SeqCst);
+            unsafe { &*self.len }.fetch_sub(1, Ordering::SeqCst);
             return false;
         }
 
-        self.send_unchecked(item);
+        self.push_unchecked(element);
 
         true
     }
 
     // NOTE: This method does NOT check for overflows.
     //       It is up to you to ensure there is enough space in the channel.
-    pub fn send_unchecked(&mut self, item: T) {
+    pub fn push_unchecked(&mut self, item: T) {
         // Get the next available index, wrapping if need be.
-        let index = unsafe { &*self.finish }.fetch_add(1, Ordering::SeqCst) % self.capacity;
+        let index = unsafe { &*self.last }.fetch_add(1, Ordering::SeqCst) % self.capacity;
         if index == 0 {
             // Just mod on overflow; the buffer is circular.
-            unsafe { &*self.finish }.fetch_sub(self.capacity, Ordering::SeqCst);
+            unsafe { &*self.last }.fetch_sub(self.capacity, Ordering::SeqCst);
         }
 
-        // Write the item into the shared memory.
+        // Write the element into the shared memory.
         unsafe {
             self.base.offset(index).write(Some(item));
         }
 
         // Signal.
-        unsafe { &mut *self.flag }.store(1, Ordering::Relaxed);
+        unsafe { &mut *self.empty_flag }.store(1, Ordering::Relaxed);
     }
 
-    // NOTE: This method does NOT check the flag, nor does it clear it.
-    pub fn recv_unchecked(&mut self) -> Option<T> {
-        let result = unsafe { &mut *self.base.offset(self.start) }.take();
+    // NOTE: This method does NOT check the empty flag, nor does it clear it.
+    pub fn pop_unchecked(&mut self) -> Option<T> {
+        let result = unsafe { &mut *self.base.offset(self.first) }.take();
         if !result.is_none() {
-            self.start = (self.start + 1) % self.capacity;
-            unsafe { &*self.count }.fetch_sub(1, Ordering::SeqCst);
+            self.first = (self.first + 1) % self.capacity;
+            unsafe { &*self.len }.fetch_sub(1, Ordering::SeqCst);
         }
 
         result
@@ -126,8 +127,8 @@ impl<T: Sized> Channel<T> {
 }
 
 impl<T> Channel<T> {
-    /// Whether the unnderlying shared memory mapping is owned by this channel.
-    pub fn owned(&self) -> bool {
+    /// Returns `true` if the underlying shared memory mapping is owned by this channel instance.
+    pub fn is_owner(&self) -> bool {
         self.shm.is_owner()
     }
 }
