@@ -106,6 +106,17 @@ impl<T: Sized> Channel<T> {
 
         true
     }
+
+    // NOTE: This method does NOT check the flag, nor does it clear it.
+    pub fn recv(&mut self) -> Option<T> {
+        let result = unsafe { &mut *self.base.offset(self.start) }.take();
+        if !result.is_none() {
+            self.start = (self.start + 1) % self.capacity;
+            unsafe { &*self.count }.fetch_sub(1, Ordering::SeqCst);
+        }
+
+        result
+    }
 }
 
 impl<T> Channel<T> {
