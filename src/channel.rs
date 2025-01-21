@@ -4,7 +4,7 @@
 
 use std::{path::Path, sync::atomic::{AtomicIsize, AtomicU8, Ordering}};
 
-use crate::Result;
+use crate::{Error, Result};
 
 
 
@@ -16,12 +16,44 @@ pub struct Channel<T: Sized> {
     capacity: isize,
     start: isize,
     finish: *mut AtomicIsize,
-    size: *mut AtomicIsize,
+    count: *mut AtomicIsize,
 }
 
 impl<T: Sized> Channel<T> {
     pub fn alloc(path: impl AsRef<Path>, capacity: usize) -> Result<Self> {
-        todo!()
+        let size = std::mem::size_of::<T>();
+        let shm = match shared_memory::ShmemConf::new().flink(&path).size(size).create() {
+            Ok(shmem) => shmem,
+            Err(shared_memory::ShmemError::LinkExists) => {
+                return Err(Error::BlockAlreadyAllocated);
+            }
+            Err(e) => { return Err(Error::Shm(e)); }
+        };
+
+        unsafe {
+            let flag = shm.as_ptr() as *mut AtomicU8;
+            let count = flag.offset(1) as *mut AtomicIsize;
+            let start = 1;
+            let finish = count.offset(1);
+            let base = count.offset(2) as *mut Option<T>;
+            let capacity = capacity as isize;
+
+            (&*count).store(0, Ordering::SeqCst);
+            (&*finish).store(start, Ordering::SeqCst);
+            for i in 0..capacity {
+                base.offset(i).write(None);
+            }
+
+            Ok(Self {
+                shm,
+                flag,
+                base,
+                capacity,
+                start,
+                finish,
+                count,
+            })
+        }
     }
 
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
@@ -41,5 +73,12 @@ impl<T: Sized> Channel<T> {
         };
 
         previous_value == 1
+    }
+}
+
+impl<T> Channel<T> {
+    /// Whether the unnderlying shared memory mapping is owned by this channel.
+    pub fn owned(&self) -> bool {
+        self.shm.is_owner()
     }
 }
