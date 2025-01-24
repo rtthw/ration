@@ -2,10 +2,10 @@
 
 
 pub mod block;
-pub mod channel;
+pub mod array;
 
 pub use block::*;
-pub use channel::*;
+pub use array::*;
 
 
 

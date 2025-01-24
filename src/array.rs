@@ -1,4 +1,4 @@
-//! Shared Memory Channel
+//! Shared Memory Array
 
 
 
@@ -8,7 +8,7 @@ use crate::{Error, Result};
 
 
 
-pub struct Channel<T: Sized> {
+pub struct Array<T: Sized> {
     shm: shared_memory::Shmem,
 
     empty_flag: *mut AtomicU8,
@@ -19,7 +19,7 @@ pub struct Channel<T: Sized> {
     len: *mut AtomicIsize,
 }
 
-impl<T: Sized> Channel<T> {
+impl<T: Sized> Array<T> {
     pub fn alloc(path: impl AsRef<Path>, capacity: usize) -> Result<Self> {
         let block_size
             = (std::mem::size_of::<Option<T>>() * capacity) // elements
@@ -80,8 +80,8 @@ impl<T: Sized> Channel<T> {
     //     previous_value == 1
     // }
 
-    // TODO: `send_many` method that accepts an iterator of items, more efficient.
-    pub fn send(&mut self, element: T) -> bool {
+    // TODO: `push_many` method that accepts an iterator of items, more efficient.
+    pub fn push(&mut self, element: T) -> bool {
         // Ensure the internal ring buffer isn't full.
         let count = unsafe { &*self.len }.fetch_add(1, Ordering::SeqCst);
         if count >= self.capacity {
@@ -143,7 +143,7 @@ impl<T: Sized> Channel<T> {
     }
 }
 
-impl<T> Channel<T> {
+impl<T> Array<T> {
     /// Returns `true` if the underlying shared memory mapping is owned by this channel instance.
     pub fn is_owner(&self) -> bool {
         self.shm.is_owner()

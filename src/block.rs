@@ -57,7 +57,7 @@ impl<T: Sized> Block<T> {
 }
 
 impl<T> Block<T> {
-    /// Whether the unnderlying shared memory mapping is owned by this block.
+    /// Whether the underlying shared memory mapping is owned by this block.
     pub fn owned(&self) -> bool {
         self.shm.is_owner()
     }
