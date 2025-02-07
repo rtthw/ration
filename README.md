@@ -14,34 +14,7 @@ And inter-process communication (IPC) library for Rust.
 
 ## Examples
 
-### A simple, string-like array.
-
-```rust
-// main.rs (server process)
-use iproc::Array;
-
-fn main() {
-    // Allocate a 32-character array to shared memory.
-    let mut my_array: Array<char> = Array::alloc("/tmp/MY_ARRAY", 32).unwrap();
-    my_array.push_many("It's working!".chars());
-
-    // Start the client process...
-}
-```
-
-```rust
-// main.rs (client process)
-use iproc::Array;
-
-fn main() {
-    // Open a 32 character array in shared memory.
-    let mut my_array: Array<char> = Array::open("/tmp/MY_ARRAY").unwrap();
-    let mut my_string = String::new();
-
-    while let Some(c) = my_array.pop() {
-        my_string.push(c);
-    }
-
-    assert_eq!(my_string, "It's working!".to_string());
-}
-```
+- **The obligatory "Hello, world!" program that passes a single character string from server to client.**
+  > [Server](./examples/helloworld_server.rs) and [client](./examples/helloworld_client.rs).
+- **A simple channel type that passes messages between server and client.**
+  > [Server](./examples/channel_server.rs) and [client](./examples/channel_client.rs).
