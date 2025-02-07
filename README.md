@@ -18,3 +18,7 @@ And inter-process communication (IPC) library for Rust.
   > [Server](./examples/helloworld_server.rs) and [client](./examples/helloworld_client.rs).
 - **A simple channel type that passes messages between server and client.**
   > [Server](./examples/channel_server.rs) and [client](./examples/channel_client.rs).
+
+## License
+
+[MIT](./LICENSE)
