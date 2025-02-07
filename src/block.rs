@@ -57,8 +57,8 @@ impl<T: Sized> Block<T> {
 }
 
 impl<T> Block<T> {
-    /// Whether the underlying shared memory mapping is owned by this block.
-    pub fn owned(&self) -> bool {
+    /// Returns `true` if the underlying shared memory mapping is owned by this block instance.
+    pub fn is_owner(&self) -> bool {
         self.shm.is_owner()
     }
 }
@@ -74,5 +74,45 @@ impl<T> std::ops::Deref for Block<T> {
 impl<T> std::ops::DerefMut for Block<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.ptr }
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestDatatype {
+        field_a: u32,
+        field_b: [char; 16],
+    }
+
+    #[test]
+    fn block_test_1() {
+        let mut block: Block<TestDatatype> = Block::alloc("/tmp/TEST_BLOCK_1").unwrap();
+        assert!(block.is_owner());
+
+        *block = TestDatatype {
+            field_a: 0xffffffff,
+            field_b: [
+                'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'w', 'o', 'r', 'k', 'i', 'n', 'g', '.',
+            ],
+        };
+
+        {
+            let mut ref_block: Block<TestDatatype> = Block::open("/tmp/TEST_BLOCK_1").unwrap();
+            assert!(!ref_block.is_owner());
+
+            assert_eq!(ref_block.field_a, 0xffffffff);
+            assert_eq!(
+                ref_block.field_b.iter().collect::<String>(),
+                "This is working.".to_string(),
+            );
+
+            ref_block.field_a = 0x000000ff;
+        }
+
+        assert_eq!(block.field_a, 0x000000ff);
     }
 }

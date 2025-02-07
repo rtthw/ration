@@ -192,7 +192,7 @@ impl<T: Sized> Array<T> {
 }
 
 impl<T> Array<T> {
-    /// Returns `true` if the underlying shared memory mapping is owned by this channel instance.
+    /// Returns `true` if the underlying shared memory mapping is owned by this array instance.
     pub fn is_owner(&self) -> bool {
         self.shm.is_owner()
     }
