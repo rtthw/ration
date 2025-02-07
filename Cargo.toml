@@ -3,5 +3,11 @@ name = "iproc"
 version = "0.1.0"
 edition = "2021"
 
+[[example]]
+name = "helloworld_server"
+
+[[example]]
+name = "helloworld_client"
+
 [dependencies]
 shared_memory = "0.12"
