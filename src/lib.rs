@@ -11,6 +11,7 @@ pub use array::*;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Debug)]
 pub enum Error {
     /// Generic shared memory error.
     Shm(shared_memory::ShmemError),

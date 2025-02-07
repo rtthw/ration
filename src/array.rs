@@ -61,7 +61,37 @@ impl<T: Sized> Array<T> {
     }
 
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        todo!()
+        let shm = shared_memory::ShmemConf::new()
+            .flink(path)
+            .open()
+            .map_err(|e| Error::Shm(e))?;
+
+        let metadata_size
+            = std::mem::size_of::<AtomicU8>()               // empty_flag
+            + (std::mem::size_of::<AtomicIsize>() * 2);     // last & len
+
+        let array_size = shm.len() - metadata_size;
+        let slot_size = std::mem::size_of::<Option<T>>();
+        let capacity = array_size / slot_size;
+
+        unsafe {
+            let empty_flag = shm.as_ptr() as *mut AtomicU8;
+            let len = empty_flag.offset(1) as *mut AtomicIsize;
+            let first = 1;
+            let last = len.offset(1);
+            let base = len.offset(2) as *mut Option<T>;
+            let capacity = capacity as isize;
+
+            Ok(Self {
+                shm,
+                empty_flag,
+                base,
+                capacity,
+                first,
+                last,
+                len,
+            })
+        }
     }
 
     /// Returns `true` if the channel contains no elements.
@@ -147,5 +177,27 @@ impl<T> Array<T> {
     /// Returns `true` if the underlying shared memory mapping is owned by this channel instance.
     pub fn is_owner(&self) -> bool {
         self.shm.is_owner()
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn array_test_1() {
+        let array_1: Array<char> = Array::alloc("/tmp/TEST_ARRAY_1", 16).unwrap();
+        assert!(array_1.is_owner());
+        assert!(array_1.is_empty());
+
+        {
+            let ref_array_1: Array<char> = Array::open("/tmp/TEST_ARRAY_1").unwrap();
+            assert!(!ref_array_1.is_owner());
+            assert!(ref_array_1.is_empty());
+
+            assert_eq!(array_1.capacity, ref_array_1.capacity);
+        }
     }
 }
