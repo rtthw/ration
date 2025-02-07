@@ -104,7 +104,7 @@ impl<T: Sized> Array<T> {
 
     /// Returns the number of array slots that are empty.
     pub fn slots_remaining(&self) -> usize {
-        (self.capacity - unsafe { &*self.len }.load(Ordering::SeqCst)) as usize
+        (self.capacity - unsafe { &*self.len }.load(Ordering::SeqCst)).unsigned_abs()
     }
 
     /// Push an element to the back of the array.
@@ -129,6 +129,7 @@ impl<T: Sized> Array<T> {
     pub fn push_many(&mut self, elements: impl IntoIterator<Item = T>) {
         let slots_remaining = self.slots_remaining();
         for element in elements.into_iter().take(slots_remaining) {
+            let _ = unsafe { &*self.len }.fetch_add(1, Ordering::SeqCst);
             self.push_unchecked(element);
         }
 
@@ -215,6 +216,7 @@ mod tests {
         array_1.push_many(s.chars());
 
         assert!(!array_1.is_empty());
+        assert_eq!(array_1.slots_remaining(), 4);
 
         {
             let mut ref_array_1: Array<char> = Array::open("/tmp/TEST_ARRAY_1").unwrap();
@@ -227,9 +229,49 @@ mod tests {
                 ref_s.push(c);
             }
 
+            assert_eq!(ref_array_1.slots_remaining(), 16);
             assert_eq!(s.to_string(), ref_s);
         }
 
         assert!(array_1.is_empty());
+    }
+
+    #[test]
+    fn array_push_overflow() {
+        let mut array: Array<u8> = Array::alloc("/tmp/TEST_ARRAY_OVERFLOW", 8).unwrap();
+
+        let mut stopped_at = 0;
+        for i in 0..16 {
+            if !array.push(i) {
+                stopped_at = i;
+                break;
+            }
+        }
+
+        assert_eq!(stopped_at, 8);
+        assert_eq!(array.slots_remaining(), 0);
+    }
+
+    #[test]
+    fn array_slots_update_correctly() {
+        let mut array: Array<u8> = Array::alloc("/tmp/TEST_ARRAY_SLOTSUPDATE", 8).unwrap();
+
+        for i in 0..9 {
+            if !array.push(i) {
+                assert_eq!(array.slots_remaining(), 0);
+
+                for j in 0..4_u8 {
+                    let Some(last_i) = array.pop() else {
+                        panic!("array should have filled slots")
+                    };
+                    assert_eq!(last_i, j);
+                    assert_eq!(array.slots_remaining(), (j + 1) as usize);
+                }
+                for k in (0..4_u8).rev() {
+                    assert!(array.push(k));
+                    assert_eq!(array.slots_remaining(), k as usize);
+                }
+            }
+        }
     }
 }
