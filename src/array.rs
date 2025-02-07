@@ -8,6 +8,7 @@ use crate::{Error, Result};
 
 
 
+// TODO: Some sort of mutable access check.
 pub struct Array<T: Sized> {
     shm: shared_memory::Shmem,
 
@@ -20,6 +21,7 @@ pub struct Array<T: Sized> {
 }
 
 impl<T: Sized> Array<T> {
+    /// Allocate an array to shared memory identified by the given path, with the given capacity.
     pub fn alloc(path: impl AsRef<Path>, capacity: usize) -> Result<Self> {
         let block_size
             = (std::mem::size_of::<Option<T>>() * capacity) // elements
@@ -60,6 +62,7 @@ impl<T: Sized> Array<T> {
         }
     }
 
+    /// Open an array in shared memory identified by the given path.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let shm = shared_memory::ShmemConf::new()
             .flink(path)
@@ -104,6 +107,7 @@ impl<T: Sized> Array<T> {
         (self.capacity - unsafe { &*self.len }.load(Ordering::SeqCst)) as usize
     }
 
+    /// Push an element to the back of the array.
     pub fn push(&mut self, element: T) -> bool {
         // Ensure the internal ring buffer isn't full.
         let count = unsafe { &*self.len }.fetch_add(1, Ordering::SeqCst);
@@ -121,6 +125,7 @@ impl<T: Sized> Array<T> {
         true
     }
 
+    /// Push an iterator of elements to the back of the array.
     pub fn push_many(&mut self, elements: impl IntoIterator<Item = T>) {
         let slots_remaining = self.slots_remaining();
         for element in elements.into_iter().take(slots_remaining) {
@@ -131,8 +136,8 @@ impl<T: Sized> Array<T> {
         unsafe { &mut *self.empty_flag }.store(1, Ordering::Relaxed);
     }
 
-    // NOTE: This method does NOT check for overflows, nor does it signal the empty flag.
-    //       It is up to you to ensure there is enough space in the array, and to raise the flag.
+    /// Push an element to the back of the array without checking for overflows, raising the empty
+    /// flag, or checking access.
     pub fn push_unchecked(&mut self, element: T) {
         // Get the next available index, wrapping if need be.
         let index = unsafe { &*self.last }.fetch_add(1, Ordering::SeqCst) % self.capacity;
@@ -147,14 +152,15 @@ impl<T: Sized> Array<T> {
         }
     }
 
-    // NOTE: This method does NOT check for overflows, nor does it signal the empty flag.
-    //       It is up to you to ensure there is enough space in the array, and to raise the flag.
+    /// Push an iterator of elements to the back of the array without checking for overflows,
+    /// raising the empty flag, or checking access.
     pub fn push_many_unchecked(&mut self, elements: impl Iterator<Item = T>) {
         for elem in elements {
             self.push_unchecked(elem)
         }
     }
 
+    /// Pop an element from the back of the array.
     pub fn pop(&mut self) -> Option<T> {
         if self.is_empty() {
             return None;
@@ -172,7 +178,8 @@ impl<T: Sized> Array<T> {
         result
     }
 
-    // NOTE: This method does NOT check the empty flag, nor does it clear it.
+    /// Pop an element from the back of the array without checking for overflows, raising the
+    /// empty flag, or checking access.
     pub fn pop_unchecked(&mut self) -> Option<T> {
         let result = unsafe { &mut *self.base.offset(self.first) }.take();
         if !result.is_none() {
