@@ -2,12 +2,13 @@ use iproc::Array;
 
 fn main() {
     // Open a 32 character array in shared memory.
-    let mut my_array: Array<char> = Array::open("/tmp/IPROC_HELLOWORLD").unwrap();
-    let mut my_string = String::new();
+    let mut my_array: Array<char> = Array::open("/tmp/IPROC_HELLOWORLD")
+        .expect("'helloworld_client' example should only be started by the 'helloworld_server'");
 
+    let mut my_string = String::new();
     while let Some(c) = my_array.pop() {
         my_string.push(c);
     }
 
-    println!("{}", my_string);
+    println!("'helloworld_client' got: \"{}\"", my_string);
 }

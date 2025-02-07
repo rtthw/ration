@@ -17,7 +17,7 @@ And inter-process communication (IPC) library for Rust.
 ### A simple, string-like array.
 
 ```rust
-// main.rs (Main process)
+// main.rs (server process)
 use iproc::Array;
 
 fn main() {
@@ -25,12 +25,12 @@ fn main() {
     let mut my_array: Array<char> = Array::alloc("/tmp/MY_ARRAY", 32).unwrap();
     my_array.push_many("It's working!".chars());
 
-    // Start the secondary process.
+    // Start the client process...
 }
 ```
 
 ```rust
-// main.rs (Secondary process)
+// main.rs (client process)
 use iproc::Array;
 
 fn main() {
