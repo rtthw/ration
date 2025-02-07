@@ -115,4 +115,24 @@ mod tests {
 
         assert_eq!(block.field_a, 0x000000ff);
     }
+
+    #[test]
+    fn block_responsive_afterward() {
+        let mut block: Block<u8> = Block::alloc("/tmp/TEST_BLOCK_RESPAFTER").unwrap();
+        let ref_block: Block<u8> = Block::open("/tmp/TEST_BLOCK_RESPAFTER").unwrap();
+        *block = 11;
+        assert_eq!(*ref_block, 11);
+    }
+
+    #[test]
+    fn block_multithreading() {
+        let mut block: Block<u8> = Block::alloc("/tmp/TEST_BLOCK_MTHREADING").unwrap();
+        let handle = std::thread::spawn(move || {
+            let ref_block: Block<u8> = Block::open("/tmp/TEST_BLOCK_MTHREADING").unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            *ref_block
+        });
+        *block = 11;
+        assert_eq!(handle.join().unwrap(), 11);
+    }
 }
