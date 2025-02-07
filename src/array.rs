@@ -94,23 +94,16 @@ impl<T: Sized> Array<T> {
         }
     }
 
-    /// Returns `true` if the channel contains no elements.
+    /// Returns `true` if the array contains no elements.
     pub fn is_empty(&self) -> bool {
         unsafe { &*self.empty_flag }.load(Ordering::Relaxed) == 0
     }
 
-    // pub fn exchange(&self) -> bool {
-    //     let previous_value = match unsafe { &*self.empty_flag }
-    //         .compare_exchange(1, 0, Ordering::Relaxed, Ordering::Relaxed)
-    //     {
-    //         Ok(val) => val,
-    //         Err(val) => val,
-    //     };
+    /// Returns the number of array slots that are empty.
+    pub fn slots_remaining(&self) -> usize {
+        (self.capacity - unsafe { &*self.len }.load(Ordering::SeqCst)) as usize
+    }
 
-    //     previous_value == 1
-    // }
-
-    // TODO: `push_many` method that accepts an iterator of items, more efficient.
     pub fn push(&mut self, element: T) -> bool {
         // Ensure the internal ring buffer isn't full.
         let count = unsafe { &*self.len }.fetch_add(1, Ordering::SeqCst);
@@ -122,12 +115,25 @@ impl<T: Sized> Array<T> {
 
         self.push_unchecked(element);
 
+        // Signal.
+        unsafe { &mut *self.empty_flag }.store(1, Ordering::Relaxed);
+
         true
     }
 
-    // NOTE: This method does NOT check for overflows.
-    //       It is up to you to ensure there is enough space in the channel.
-    pub fn push_unchecked(&mut self, item: T) {
+    pub fn push_many(&mut self, elements: impl IntoIterator<Item = T>) {
+        let slots_remaining = self.slots_remaining();
+        for element in elements.into_iter().take(slots_remaining) {
+            self.push_unchecked(element);
+        }
+
+        // Signal.
+        unsafe { &mut *self.empty_flag }.store(1, Ordering::Relaxed);
+    }
+
+    // NOTE: This method does NOT check for overflows, nor does it signal the empty flag.
+    //       It is up to you to ensure there is enough space in the array, and to raise the flag.
+    pub fn push_unchecked(&mut self, element: T) {
         // Get the next available index, wrapping if need be.
         let index = unsafe { &*self.last }.fetch_add(1, Ordering::SeqCst) % self.capacity;
         if index == 0 {
@@ -137,11 +143,16 @@ impl<T: Sized> Array<T> {
 
         // Write the element into the shared memory.
         unsafe {
-            self.base.offset(index).write(Some(item));
+            self.base.offset(index).write(Some(element));
         }
+    }
 
-        // Signal.
-        unsafe { &mut *self.empty_flag }.store(1, Ordering::Relaxed);
+    // NOTE: This method does NOT check for overflows, nor does it signal the empty flag.
+    //       It is up to you to ensure there is enough space in the array, and to raise the flag.
+    pub fn push_many_unchecked(&mut self, elements: impl Iterator<Item = T>) {
+        for elem in elements {
+            self.push_unchecked(elem)
+        }
     }
 
     pub fn pop(&mut self) -> Option<T> {
@@ -188,16 +199,30 @@ mod tests {
 
     #[test]
     fn array_test_1() {
-        let array_1: Array<char> = Array::alloc("/tmp/TEST_ARRAY_1", 16).unwrap();
+        let mut array_1: Array<char> = Array::alloc("/tmp/TEST_ARRAY_1", 16).unwrap();
         assert!(array_1.is_owner());
         assert!(array_1.is_empty());
 
-        {
-            let ref_array_1: Array<char> = Array::open("/tmp/TEST_ARRAY_1").unwrap();
-            assert!(!ref_array_1.is_owner());
-            assert!(ref_array_1.is_empty());
+        let s = "Something...";
 
+        array_1.push_many(s.chars());
+
+        assert!(!array_1.is_empty());
+
+        {
+            let mut ref_array_1: Array<char> = Array::open("/tmp/TEST_ARRAY_1").unwrap();
+            assert!(!ref_array_1.is_owner());
+            assert!(!ref_array_1.is_empty());
             assert_eq!(array_1.capacity, ref_array_1.capacity);
+
+            let mut ref_s = String::new();
+            while let Some(c) = ref_array_1.pop() {
+                ref_s.push(c);
+            }
+
+            assert_eq!(s.to_string(), ref_s);
         }
+
+        assert!(array_1.is_empty());
     }
 }
