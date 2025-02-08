@@ -2,11 +2,11 @@
 
 
 
-use std::{ffi::c_void, num::NonZeroUsize, os::fd::OwnedFd, path::Path, ptr::NonNull};
+use std::{ffi::c_void, num::NonZeroUsize, os::fd::{AsRawFd, OwnedFd}, path::Path, ptr::NonNull};
 
-use nix::{fcntl::OFlag, sys::{mman::{mmap, munmap, shm_open, shm_unlink, MapFlags, ProtFlags}, stat::Mode}, unistd::ftruncate};
+use nix::{fcntl::OFlag, sys::{mman::{mmap, munmap, shm_open, shm_unlink, MapFlags, ProtFlags}, stat::{fstat, Mode}}, unistd::ftruncate};
 
-use crate::Error;
+use crate::{Error, Result};
 
 
 
@@ -38,7 +38,7 @@ impl Drop for Mapping {
 }
 
 impl Mapping {
-    pub fn create(path: impl AsRef<Path>, size: usize) -> Result<Self, Error> {
+    pub fn create(path: impl AsRef<Path>, size: usize) -> Result<Self> {
         let nz_map_size = NonZeroUsize::new(size)
             .ok_or(Error::MapSizeZero)?;
 
@@ -78,6 +78,46 @@ impl Mapping {
             fd,
             uid: uid.to_string(),
             len: size,
+            addr,
+        })
+    }
+
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        let uid = path.as_ref().to_string_lossy().to_string();
+        let fd = match shm_open(
+            uid.as_str(),
+            OFlag::O_RDWR, // Open, read/write.
+            Mode::S_IRUSR, // User read permissions.
+        ) {
+            Ok(value) => value,
+            Err(e) => return Err(Error::MapOpenFailed(e as u32)),
+        };
+        let len = match fstat(fd.as_raw_fd()) {
+            Ok(value) => value.st_size as usize,
+            Err(e) => return Err(Error::MapOpenFailed(e as u32)),
+        };
+
+        let nz_map_size = NonZeroUsize::new(len).ok_or(Error::MapSizeZero)?;
+
+        let addr = match unsafe {
+            mmap(
+                None,
+                nz_map_size,
+                ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+                MapFlags::MAP_SHARED,
+                &fd,
+                0,
+            )
+        } {
+            Ok(value) => value,
+            Err(e) => return Err(Error::MapOpenFailed(e as u32)),
+        };
+
+        Ok(Self {
+            owner: false,
+            fd,
+            uid,
+            len,
             addr,
         })
     }
