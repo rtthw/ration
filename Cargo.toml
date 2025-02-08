@@ -3,6 +3,7 @@ name = "iproc"
 version = "0.1.0"
 edition = "2021"
 
+
 [[example]]
 name = "helloworld_server"
 
@@ -15,5 +16,9 @@ name = "channel_server"
 [[example]]
 name = "channel_client"
 
+
 [dependencies]
 shared_memory = "0.12"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", default-features = false, features = ["fs", "mman"] }
