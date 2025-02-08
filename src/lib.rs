@@ -20,4 +20,10 @@ pub enum Error {
     InvalidBlockSize,
     /// Attempted to allocated a block that has already been allocated.
     BlockAlreadyAllocated,
+    MapCreateFailed(u32),
+    /// Attempted to map shared memory that already exists.
+    MappingExists,
+    /// Attempted to create a map that was of length zero.
+    MapSizeZero,
+    UnknownOsError(u32),
 }
