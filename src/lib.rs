@@ -1,3 +1,15 @@
+//! Ration
+//!
+//! A simple, easy-to-use, shared memory library.
+//!
+//! # Getting Started
+//!
+//! It's best to start by looking through the [examples directory](https://github.com/rtthw/ration/tree/master/examples).
+//!
+//! # Note on allocating/opening paths.
+//!
+//! If the path you provide to `alloc` or `open` for some data type, `ration` will attempt to
+//! place your data structure into `/dev/shm/`.
 
 
 

@@ -8,6 +8,7 @@ use crate::{Error, Result};
 
 
 
+/// A shared array that can store `capacity` elements of type `T`.
 // TODO: Some sort of mutable access check.
 pub struct Array<T: Sized> {
     shm: shared_memory::Shmem,
