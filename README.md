@@ -18,6 +18,8 @@ A shared memory library for Rust. Useful for interprocess communication (IPC) th
   > [Server](./examples/helloworld_server.rs) and [client](./examples/helloworld_client.rs).
 - **A simple channel type that passes messages between server and client.**
   > [Server](./examples/channel_server.rs) and [client](./examples/channel_client.rs).
+- **A FizzBuzz clone that uses the `Block` type as a singleton. Also shows how to share strings.**
+  > [Link](./examples/singleton.rs).
 
 ## License
 

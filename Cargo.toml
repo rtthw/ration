@@ -23,6 +23,12 @@ name = "channel_server"
 [[example]]
 name = "channel_client"
 
+[[example]]
+name = "singleton"
+
 
 [dependencies]
 shared_memory = "0.12"
+
+[dev-dependencies]
+arrayvec = "0.7"
