@@ -1,16 +1,16 @@
 
 
 
-# iproc
+# Ration
 
-And inter-process communication (IPC) library for Rust.
+A shared memory library for Rust.
 
 ## Features
 
 - **Performance.**
   > Shared memory is as fast as you can get with IPC.
 - **Flexibility.**
-  > `iproc` provides simple data types that can be used in a variety of ways.
+  > `ration` provides simple data types that can be used in a variety of ways.
 
 ## Examples
 
