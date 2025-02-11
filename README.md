@@ -3,7 +3,7 @@
 
 # Ration
 
-A shared memory library for Rust.
+A shared memory library for Rust. Useful for interprocess communication (IPC) through message-passing, sharing data structures, etc.
 
 ## Features
 

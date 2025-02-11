@@ -1,7 +1,14 @@
 [package]
 name = "ration"
 version = "0.1.0"
+authors = ["Matthew Norman"]
 edition = "2021"
+description = "A shared memory library"
+readme = "README.md"
+homepage = "https://github.com/rtthw/ration"
+repository = "https://github.com/rtthw/ration"
+license = "MIT"
+keywords = ["shm", "ipc", "memory", "mmap", "io"]
 
 
 [[example]]
