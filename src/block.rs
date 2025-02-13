@@ -9,6 +9,22 @@ use crate::{Error, Result};
 
 
 /// A typed, shared block of memory.
+///
+/// # Example
+/// *In your "parent" process:*
+/// ```no_run
+/// use ration::Block;
+///
+/// let mut block: Block<u64> = Block::alloc("/dev/shm/MY_BLOCK").unwrap();
+/// *block = 71;
+/// ```
+/// *In your "child" process:*
+/// ```no_run
+/// use ration::Block;
+///
+/// let block: Block<u64> = Block::open("/dev/shm/MY_BLOCK").unwrap();
+/// println!("MY_BLOCK: {}", *block); // 71
+/// ```
 pub struct Block<T: Sized> {
     shm: shared_memory::Shmem,
     ptr: *mut T,

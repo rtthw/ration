@@ -9,6 +9,27 @@ use crate::{Error, Result};
 
 
 /// A shared array that can store `capacity` elements of type `T`.
+///
+/// # Example
+/// *In your "parent" process:*
+/// ```no_run
+/// use ration::Array;
+///
+/// let mut array: Array<char> = Array::alloc("/tmp/MY_ARRAY", 6).unwrap();
+/// array.push_many("ration".chars());
+/// ```
+/// *In your "child" process:*
+/// ```no_run
+/// use ration::Array;
+///
+/// let mut array: Array<char> = Array::open("/tmp/MY_ARRAY").unwrap();
+///
+/// let mut s = String::new();
+/// while let Some(c) = array.pop() {
+///     s.push(c);
+/// }
+/// println!("MY_ARRAY: {}", s); // "ration"
+/// ```
 // TODO: Some sort of mutable access check.
 pub struct Array<T: Sized> {
     shm: shared_memory::Shmem,
