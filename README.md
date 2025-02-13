@@ -8,9 +8,33 @@ A shared memory library for Rust. Useful for interprocess communication (IPC) th
 ## Features
 
 - **Performance.**
-  > Shared memory is as fast as you can get with IPC.
+  > Shared memory is as fast as you can get when it comes to interprocess communication.
 - **Flexibility.**
-  > `ration` provides simple data types that can be used in a variety of ways.
+  > Simple data structures that can be used in a variety of ways. Abstract and combine them however you like to form your own types.
+
+## Quickstart
+
+In your main process (the one that owns the shared allocation), create your shared type and give it some initial data (don't forget this part because blocks don't start off with initial data, and accessing unitialized data is undefined behavior):
+```rust
+use ration::Block;
+
+fn main() {
+    let mut block: Block<i32> = Block::alloc("/tmp/MY_BLOCK").unwrap();
+    *block = 71;
+}
+```
+...then in some other process, you can access (and even mutate it) like so:
+
+```rust
+use ration::Block;
+
+fn main() {
+    let mut block: Block<i32> = Block::open("/tmp/MY_BLOCK").unwrap();
+    println!("MY_BLOCK VALUE: {:?}", *block); // 71
+}
+```
+> [!NOTE]
+> I'd recommend using some mutable access checker (like a `Mutex`) if you plan on mutating shared data.
 
 ## Examples
 
