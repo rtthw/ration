@@ -265,8 +265,42 @@ impl<'a, T> Iterator for ArrayIter<'a, T> {
     }
 }
 
+/// # Warning
+///
+/// This can be wildly unsafe if the array is being mutated while you are iterating over its
+/// elements. **Use at your own risk.**
+pub struct ArrayIterMut<'a, T> {
+    array: &'a mut Array<T>,
+    index: isize,
+    capacity: isize,
+    // FIXME: There is probably a better way to stop the iteration than counting up to length.
+    count: isize,
+    len: isize,
+}
+
+impl<'a, T> Iterator for ArrayIterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let elem = unsafe { &mut *self.array.base.offset(self.index) }.as_mut();
+        if elem.is_some() {
+            self.index = (self.index + 1) % self.capacity;
+            self.count += 1;
+        }
+        if self.count > self.len {
+            // NOTE: This is a ring buffer, so the iterator will continue indefinitely if the
+            //       array is full without this check.
+            None
+        } else {
+            elem
+        }
+    }
+}
+
 // Iteration methods.
 impl<T: Sized> Array<T> {
+    /// Iterate over this array's elements.
+    ///
     /// # Warning
     ///
     /// This can be wildly unsafe if the array is being mutated while you are iterating over its
@@ -278,6 +312,26 @@ impl<T: Sized> Array<T> {
             capacity: self.capacity,
             count: 0,
             len: unsafe { &*self.len }.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Mutably iterate over this array's elements.
+    ///
+    /// # Warning
+    ///
+    /// This can be wildly unsafe if the array is being mutated while you are iterating over its
+    /// elements. **Use at your own risk.**
+    pub fn iter_mut(&mut self) -> ArrayIterMut<'_, T> {
+        let index = self.first.clone();
+        let capacity = self.capacity.clone();
+        let len = unsafe { &*self.len }.load(Ordering::Relaxed).clone();
+
+        ArrayIterMut {
+            array: self,
+            index,
+            capacity,
+            count: 0,
+            len,
         }
     }
 }
