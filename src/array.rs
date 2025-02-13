@@ -447,4 +447,17 @@ mod tests {
 
         assert_eq!(&s, "Testing...");
     }
+
+    #[test]
+    fn array_traverse_mutable() {
+        let mut array = Array::alloc("/tmp/TEST_ARRAY_ITERMUT", 16).unwrap();
+        array.push_many([1, 2, 3, 4, 5].into_iter());
+
+        for n in array.iter_mut() {
+            *n += 1;
+        }
+
+        let result = array.iter().copied().collect::<Vec<_>>();
+        assert_eq!(result, vec![2, 3, 4, 5, 6]);
+    }
 }
