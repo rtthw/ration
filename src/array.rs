@@ -359,8 +359,8 @@ mod tests {
     }
 
     #[test]
-    fn array_traversal() {
-        let mut array = Array::alloc("/tmp/TEST_ARRAY_ITER", 16).unwrap();
+    fn array_traverse_full() {
+        let mut array = Array::alloc("/tmp/TEST_ARRAY_ITERFULL", 16).unwrap();
         // 16th item is 'j'.
         array.push_many("This is a test just to see if the array iterates correctly.".chars());
 
@@ -374,5 +374,23 @@ mod tests {
         }
 
         assert_eq!(&s, "This is a test j");
+    }
+
+    #[test]
+    fn array_traverse_partial() {
+        let mut array = Array::alloc("/tmp/TEST_ARRAY_ITERPARTIAL", 16).unwrap();
+        array.push_many("Testing...".chars());
+
+        let iter = array.iter();
+
+        assert_eq!(iter.len, 10);
+        assert_eq!(array.slots_remaining(), 6);
+
+        let mut s = String::new();
+        for ch in iter {
+            s.push(*ch);
+        }
+
+        assert_eq!(&s, "Testing...");
     }
 }
