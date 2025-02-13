@@ -183,7 +183,7 @@ impl<T: Sized> Array<T> {
         }
     }
 
-    /// Pop an element from the back of the array.
+    /// Pop an element from the front of the array.
     pub fn pop(&mut self) -> Option<T> {
         if self.is_empty() {
             return None;
@@ -201,7 +201,7 @@ impl<T: Sized> Array<T> {
         result
     }
 
-    /// Pop an element from the back of the array without checking for overflows, raising the
+    /// Pop an element from the front of the array without checking for overflows, raising the
     /// empty flag, or checking access.
     pub fn pop_unchecked(&mut self) -> Option<T> {
         let result = unsafe { &mut *self.base.offset(self.first) }.take();
@@ -221,15 +221,66 @@ impl<T> Array<T> {
     }
 }
 
-// impl<T: std::fmt::Debug> std::fmt::Debug for Array<T> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("Array")
-//             .field("capacity", &self.capacity)
-//             .field("len", &self.len)
-//             .field("elements", todo!("array traversal"))
-//             .finish_non_exhaustive()
-//     }
-// }
+impl<T: std::fmt::Debug> std::fmt::Debug for Array<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Array")
+            .field("capacity", &self.capacity)
+            .field("len", &self.len)
+            // .field("elements", self.iter().collect())
+            .finish_non_exhaustive()
+    }
+}
+
+
+
+/// # Warning
+///
+/// This can be wildly unsafe if the array is being mutated while you are iterating over its
+/// elements. **Use at your own risk.**
+pub struct ArrayIter<'a, T> {
+    array: &'a Array<T>,
+    index: isize,
+    capacity: isize,
+    // FIXME: There is probably a better way to stop the iteration than counting up to length.
+    count: isize,
+    len: isize,
+}
+
+impl<'a, T> Iterator for ArrayIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let elem = unsafe { &*self.array.base.offset(self.index) }.as_ref();
+        if elem.is_some() {
+            self.index = (self.index + 1) % self.capacity;
+            self.count += 1;
+        }
+        if self.count > self.len {
+            // NOTE: This is a ring buffer, so the iterator will continue indefinitely if the
+            //       array is full without this check.
+            None
+        } else {
+            elem
+        }
+    }
+}
+
+// Iteration methods.
+impl<T: Sized> Array<T> {
+    /// # Warning
+    ///
+    /// This can be wildly unsafe if the array is being mutated while you are iterating over its
+    /// elements. **Use at your own risk.**
+    pub fn iter(&self) -> ArrayIter<'_, T> {
+        ArrayIter {
+            array: self,
+            index: self.first,
+            capacity: self.capacity,
+            count: 0,
+            len: unsafe { &*self.len }.load(Ordering::Relaxed),
+        }
+    }
+}
 
 
 
@@ -305,5 +356,23 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn array_traversal() {
+        let mut array = Array::alloc("/tmp/TEST_ARRAY_ITER", 16).unwrap();
+        // 16th item is 'j'.
+        array.push_many("This is a test just to see if the array iterates correctly.".chars());
+
+        let iter = array.iter();
+
+        assert_eq!(iter.len, 16);
+
+        let mut s = String::new();
+        for ch in iter {
+            s.push(*ch);
+        }
+
+        assert_eq!(&s, "This is a test j");
     }
 }
