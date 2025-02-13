@@ -2,7 +2,7 @@
 
 
 
-use std::path::Path;
+use std::{ops::Deref, path::Path};
 
 use crate::{Error, Result};
 
@@ -90,6 +90,15 @@ impl<T> std::ops::Deref for Block<T> {
 impl<T> std::ops::DerefMut for Block<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.ptr }
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for Block<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Block")
+            .field("addr", &self.ptr)
+            .field("obj", self.deref())
+            .finish_non_exhaustive()
     }
 }
 

@@ -221,6 +221,16 @@ impl<T> Array<T> {
     }
 }
 
+// impl<T: std::fmt::Debug> std::fmt::Debug for Array<T> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("Array")
+//             .field("capacity", &self.capacity)
+//             .field("len", &self.len)
+//             .field("elements", todo!("array traversal"))
+//             .finish_non_exhaustive()
+//     }
+// }
+
 
 
 #[cfg(test)]
