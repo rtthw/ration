@@ -1,4 +1,10 @@
 
+# 0.2.1
+
+### Fixed
+
+- `Error` now implements `std::error::Error`.
+
 # 0.2.0
 
 *Array iteration, more documentation, a new example, and debuggable collections.*

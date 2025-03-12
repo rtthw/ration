@@ -32,3 +32,11 @@ pub enum Error {
     /// Attempted to allocated a block that has already been allocated.
     BlockAlreadyAllocated,
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl std::error::Error for Error {}
