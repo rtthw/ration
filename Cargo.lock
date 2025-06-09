@@ -142,8 +142,13 @@ name = "ration"
 version = "0.2.1"
 dependencies = [
  "arrayvec",
+ "ration-allocator",
  "shared_memory",
 ]
+
+[[package]]
+name = "ration-allocator"
+version = "0.1.0"
 
 [[package]]
 name = "shared_memory"

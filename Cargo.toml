@@ -1,3 +1,6 @@
+[workspace]
+members = ["ration-allocator"]
+
 [package]
 name = "ration"
 version = "0.2.1"
@@ -9,6 +12,10 @@ homepage = "https://github.com/rtthw/ration"
 repository = "https://github.com/rtthw/ration"
 license = "MIT"
 keywords = ["shm", "ipc", "memory", "mmap", "io"]
+
+
+[features]
+allocator = ["dep:ration-allocator"]
 
 
 [[example]]
@@ -29,6 +36,7 @@ name = "singleton"
 
 [dependencies]
 shared_memory = "0.12"
+ration-allocator = { path = "ration-allocator", optional = true }
 
 [dev-dependencies]
 arrayvec = "0.7"
