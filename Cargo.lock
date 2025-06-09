@@ -149,6 +149,9 @@ dependencies = [
 [[package]]
 name = "ration-allocator"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "shared_memory"
